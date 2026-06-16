@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Suivi Personnel</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ── TOKENS ─────────────────────────────────────────── */
+:root {
+  --bg:       #0F1117;
+  --surface:  #1A1D27;
+  --surface2: #22253A;
+  --border:   #2E3148;
+  --accent:   #6C63FF;
+  --red:      #FF6584;
+  --green:    #4FD1A8;
+  --amber:    #FFB74D;
+  --blue:     #63B3ED;
+  --purple:   #A78BFA;
+  --text:     #E8E8F0;
+  --sub:      #8A8DB5;
+  --mute:     #4A4E6A;
+  --gold:     #FFD700;
+  --r:        10px;
+}
+
+/* ── RESET ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  min-height: 100vh; padding-bottom: 40px;
+}
+button { cursor: pointer; font-family: inherit; }
+input, select { font-family: inherit; }
+
+/* ── LAYOUT ─────────────────────────────────────────── */
+.app { max-width: 700px; margin: 0 auto; padding: 0 14px; }
+
+/* ── HEADER ─────────────────────────────────────────── */
+.header {
+  padding: 20px 0 0;
+  display: flex; align-items: center; gap: 12px;
+}
+.header h1 { font-size: 1.3rem; font-weight: 800; }
+.header .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink:0; }
+
+/* ── TABS ────────────────────────────────────────────── */
+.tabs {
+  display: flex; gap: 4px; overflow-x: auto;
+  padding: 14px 0 0; scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab-btn {
+  flex-shrink: 0;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--sub); padding: 8px 14px 10px;
+  font-size: .82rem; font-weight: 700;
+  letter-spacing: .03em; transition: color .15s;
+  white-space: nowrap;
+}
+.tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+
+.tab-panel { display: none; padding-top: 20px; }
+.tab-panel.active { display: block; }
+
+/* ── CARDS ───────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 16px 18px; margin-bottom: 14px;
+}
+.card-title {
+  font-size: .7rem; font-weight: 700;
+  color: var(--sub); text-transform: uppercase;
+  letter-spacing: .07em; margin-bottom: 12px;
+}
+.sec-title {
+  font-size: 1rem; font-weight: 800;
+  margin-bottom: 16px; padding-left: 12px;
+  border-left: 4px solid currentColor;
+}
+
+/* ── BIG VALUE ───────────────────────────────────────── */
+.big-val {
+  font-size: 2.6rem; font-weight: 800;
+  text-align: center; margin: 10px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── INPUTS ──────────────────────────────────────────── */
+.field-row { display: flex; gap: 10px; margin-bottom: 12px; }
+.field { flex: 1; }
+.field label { display: block; font-size: .75rem; color: var(--sub); margin-bottom: 5px; }
+.field input, .field select {
+  width: 100%;
+  background: var(--surface2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; font-size: 1rem;
+  appearance: none; -webkit-appearance: none;
+  outline: none; transition: border-color .15s;
+}
+.field input:focus, .field select:focus { border-color: var(--accent); }
+input[type=number]::-webkit-inner-spin-button { opacity: 1; }
+
+/* ── BUTTONS ─────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px; border: none; border-radius: 8px;
+  padding: 9px 18px; font-size: .88rem; font-weight: 700;
+  transition: filter .15s, transform .08s; color: var(--text);
+}
+.btn:active { transform: scale(.97); }
+.btn:hover  { filter: brightness(1.12); }
+.btn-primary { background: var(--accent); }
+.btn-green   { background: var(--green);  color: #0a1a13; }
+.btn-red     { background: var(--red); }
+.btn-blue    { background: var(--blue);   color: #0a131a; }
+.btn-amber   { background: var(--amber);  color: #1a1200; }
+.btn-ghost   { background: var(--surface2); }
+.btn-full    { width: 100%; }
+.btn-sm      { padding: 6px 12px; font-size: .78rem; }
+.btn-row     { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+/* ── TOAST ───────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--surface2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 99px;
+  padding: 10px 22px; font-size: .85rem; font-weight: 600;
+  transition: transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+  opacity: 0; z-index: 999; white-space: nowrap; pointer-events: none;
+}
+#toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+#toast.ok   { border-color: var(--green); color: var(--green); }
+#toast.warn { border-color: var(--amber); color: var(--amber); }
+#toast.err  { border-color: var(--red);   color: var(--red); }
+
+/* ── HISTORY LIST ────────────────────────────────────── */
+.hist-list { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.hist-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface2); border-radius: 8px; padding: 9px 12px;
+  font-size: .85rem;
+}
+.hist-item .del-btn {
+  background: none; border: none; color: var(--mute);
+  font-size: 1rem; padding: 0 4px; line-height: 1;
+  transition: color .15s;
+}
+.hist-item .del-btn:hover { color: var(--red); }
+
+/* ── STATS METRICS ───────────────────────────────────── */
+.metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 12px; }
+.metric {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px;
+}
+.metric .m-label { font-size: .68rem; color: var(--sub); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+.metric .m-value { font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.metric .m-sub   { font-size: .7rem; color: var(--sub); margin-top: 2px; }
+
+.stats-section { margin-top: 20px; }
+.stats-section h3 { font-size: .75rem; color: var(--sub); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
+.metrics-sm { display: flex; gap: 6px; flex-wrap: wrap; }
+.metrics-sm .metric { flex: 1; min-width: 80px; }
+.metrics-sm .m-value { font-size: .88rem; }
+
+/* ── CHART WRAPPER ───────────────────────────────────── */
+.chart-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px; margin-top: 14px;
+}
+.chart-wrap canvas { width: 100% !important; }
+
+/* ── DIVIDER ─────────────────────────────────────────── */
+hr { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+
+/* ── CHECKBOXES ──────────────────────────────────────── */
+.check-grid { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.check-card {
+  flex: 1; min-width: 90px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 12px 14px;
+  cursor: pointer; user-select: none;
+  transition: border-color .15s, background .15s;
+}
+.check-card.checked { background: var(--surface2); }
+.check-card .cc-bar { height: 3px; border-radius: 2px; margin-bottom: 10px; }
+.check-card .cc-name { font-size: .88rem; font-weight: 700; margin-bottom: 8px; }
+.check-card .cc-tick {
+  width: 18px; height: 18px; border-radius: 5px;
+  border: 2px solid var(--border); display: flex; align-items: center;
+  justify-content: center; font-size: .75rem; transition: all .15s;
+}
+.check-card.checked .cc-tick { background: currentColor; border-color: currentColor; }
+
+/* ── CONTACT CHECKBOXES ──────────────────────────────── */
+.contact-list { display: flex; flex-direction: column; gap: 6px; }
+.contact-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface2); border-radius: 8px; padding: 9px 12px;
+  cursor: pointer; user-select: none; transition: background .15s;
+}
+.contact-item input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+.contact-item label { cursor: pointer; font-size: .92rem; }
+
+/* ── GROUPE PILL ─────────────────────────────────────── */
+.groupe-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.groupe-pill {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface2); border-radius: 8px; padding: 9px 12px;
+  font-size: .85rem;
+}
+.groupe-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── CALENDAR ────────────────────────────────────────── */
+.cal-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+.cal-month { flex: 1; min-width: 220px; }
+.cal-month h3 { font-size: .85rem; font-weight: 700; margin-bottom: 8px; color: var(--sub); text-align:center; }
+.cal-table { width: 100%; border-collapse: collapse; }
+.cal-table th { font-size: .7rem; color: var(--sub); font-weight: 700;
+  padding: 4px 2px; text-align: center; }
+.cal-table td { padding: 5px 2px; text-align: center; font-size: .8rem; position: relative; }
+.cal-day { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 32px; }
+.cal-num { font-size: .78rem; color: var(--text); }
+.cal-dots { display: flex; gap: 3px; justify-content: center; flex-wrap: wrap; }
+.cal-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+/* ── COLLAPSIBLE ─────────────────────────────────────── */
+.collapsible summary {
+  cursor: pointer; list-style: none;
+  font-size: .82rem; color: var(--sub); padding: 8px 0;
+  display: flex; align-items: center; gap: 6px;
+}
+.collapsible summary::marker { display: none; }
+.collapsible summary::before { content: "▶"; font-size: .6rem; transition: transform .2s; }
+.collapsible[open] summary::before { transform: rotate(90deg); }
+
+/* ── POIDS CONTROLS ──────────────────────────────────── */
+.poids-controls { display: flex; flex-direction: column; gap: 6px; }
+.poids-row { display: flex; gap: 6px; align-items: center; justify-content: center; }
+.poids-btn {
+  background: var(--surface2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 7px 14px; font-size: .82rem; font-weight: 700;
+  min-width: 72px; transition: filter .15s;
+}
+.poids-btn:hover { filter: brightness(1.15); }
+
+/* ── RESPONSIVE ──────────────────────────────────────── */
+@media (max-width: 480px) {
+  .metrics { grid-template-columns: repeat(2, 1fr); }
+  .big-val { font-size: 2rem; }
+  .tab-btn { padding: 8px 10px; font-size: .75rem; }
+  .btn { padding: 8px 14px; font-size: .82rem; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="dot"></div>
+    <h1>Suivi Personnel</h1>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs" role="tablist">
+    <button class="tab-btn active" onclick="switchTab(0)" id="t0">⏱ Durée</button>
+    <button class="tab-btn"        onclick="switchTab(1)" id="t1">⚖ Poids</button>
+    <button class="tab-btn"        onclick="switchTab(2)" id="t2">🍆 Aide</button>
+    <button class="tab-btn"        onclick="switchTab(3)" id="t3">🎯 Activités</button>
+    <button class="tab-btn"        onclick="switchTab(4)" id="t4">🗣 Social</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       ONGLET 1 — DURÉE
+  ════════════════════════════════════════════════════ -->
+  <div class="tab-panel active" id="panel0">
+    <div class="sec-title" style="color:var(--blue)">Enregistrer une durée</div>
+    <div class="card">
+      <div class="field-row">
+        <div class="field">
+          <label>Heures</label>
+          <input type="number" id="dur-h" min="0" max="23" value="1" oninput="updateDurDisplay()">
+        </div>
+        <div class="field">
+          <label>Minutes</label>
+          <input type="number" id="dur-m" min="0" max="59" step="5" value="30" oninput="updateDurDisplay()">
+        </div>
+      </div>
+      <div class="big-val" id="dur-display" style="color:var(--blue)">1h30</div>
+      <button class="btn btn-blue btn-full" onclick="validerDuree()">✓ Valider la durée</button>
+    </div>
+
+    <div id="dur-content" style="display:none">
+      <div class="chart-wrap"><canvas id="dur-chart" height="220"></canvas></div>
+      <div id="dur-stats"></div>
+      <hr>
+      <details class="collapsible">
+        <summary>🗑 Supprimer une entrée</summary>
+        <ul class="hist-list" id="dur-hist"></ul>
+      </details>
+    </div>
+    <div id="dur-empty" class="card" style="color:var(--sub);text-align:center;font-size:.88rem">
+      Aucune durée enregistrée pour le moment.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       ONGLET 2 — POIDS
+  ════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="panel1">
+    <div class="sec-title" style="color:var(--green)">Enregistrer le poids</div>
+    <div class="card">
+      <div class="big-val" id="poids-display" style="color:var(--green)">70.00 kg</div>
+      <div class="poids-controls">
+        <div class="poids-row">
+          <button class="poids-btn" style="color:var(--red)" onclick="ajusterPoids(-1)">− 1 kg</button>
+          <input type="number" id="poids-val" min="20" max="300" step="0.01" value="70.00"
+                 oninput="updatePoidsDisplay()" style="width:110px;text-align:center;
+                 background:var(--surface2);color:var(--text);border:1px solid var(--border);
+                 border-radius:8px;padding:8px;font-size:1rem;">
+          <button class="poids-btn" style="color:var(--green)" onclick="ajusterPoids(1)">+ 1 kg</button>
+        </div>
+        <div class="poids-row">
+          <button class="poids-btn btn-sm" style="color:var(--red);font-size:.75rem" onclick="ajusterPoids(-0.1)">− 0.10</button>
+          <button class="poids-btn btn-sm" style="color:var(--green);font-size:.75rem" onclick="ajusterPoids(0.1)">+ 0.10</button>
+        </div>
+        <div class="poids-row">
+          <button class="poids-btn btn-sm" style="color:var(--red);font-size:.72rem;padding:5px 10px" onclick="ajusterPoids(-0.01)">− 0.01</button>
+          <button class="poids-btn btn-sm" style="color:var(--green);font-size:.72rem;padding:5px 10px" onclick="ajusterPoids(0.01)">+ 0.01</button>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <button class="btn btn-green btn-full" onclick="validerPoids()">✓ Valider le poids</button>
+      </div>
+    </div>
+
+    <div id="poids-content" style="display:none">
+      <div class="chart-wrap"><canvas id="poids-chart" height="220"></canvas></div>
+      <div id="poids-stats"></div>
+      <hr>
+      <details class="collapsible">
+        <summary>🗑 Supprimer une entrée</summary>
+        <ul class="hist-list" id="poids-hist"></ul>
+      </details>
+    </div>
+    <div id="poids-empty" class="card" style="color:var(--sub);text-align:center;font-size:.88rem">
+      Aucun poids enregistré pour le moment.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       ONGLET 3 — AIDE
+  ════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="panel2">
+    <div class="sec-title" style="color:var(--accent)">Suivi de l'aide</div>
+
+    <!-- Avec aide -->
+    <div class="card">
+      <div class="card-title" style="color:var(--red)">Avec aide</div>
+      <div class="field">
+        <label>Valeur</label>
+        <input type="number" id="avec-val" min="0" max="99999" value="0">
+      </div>
+      <button class="btn btn-red btn-full" style="margin-top:10px" onclick="validerAvec()">✓ Valider (avec aide)</button>
+    </div>
+
+    <!-- Sans aide -->
+    <div class="card">
+      <div class="card-title" style="color:var(--green)">Sans aide</div>
+      <div class="field">
+        <label>Valeur</label>
+        <input type="number" id="sans-val" min="0" max="99999" value="0">
+      </div>
+      <button class="btn btn-green btn-full" style="margin-top:10px" onclick="validerSans()">✓ Valider (sans aide)</button>
+    </div>
+
+    <div id="aide-content" style="display:none">
+      <div class="chart-wrap"><canvas id="aide-chart" height="220"></canvas></div>
+      <div id="aide-stats"></div>
+      <hr>
+      <details class="collapsible">
+        <summary>🗑 Supprimer une entrée (avec aide)</summary>
+        <ul class="hist-list" id="avec-hist"></ul>
+      </details>
+      <details class="collapsible" style="margin-top:6px">
+        <summary>🗑 Supprimer une entrée (sans aide)</summary>
+        <ul class="hist-list" id="sans-hist"></ul>
+      </details>
+    </div>
+    <div id="aide-empty" class="card" style="color:var(--sub);text-align:center;font-size:.88rem">
+      Aucune entrée pour le moment.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       ONGLET 4 — ACTIVITÉS
+  ════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="panel3">
+    <div class="sec-title" style="color:var(--amber)">Activités du jour</div>
+    <div class="card">
+      <div class="card-title">Cocher les activités faites aujourd'hui</div>
+      <div class="check-grid" id="act-checks"></div>
+      <button class="btn btn-amber btn-full" onclick="validerAct()">✓ Valider les activités</button>
+    </div>
+
+    <div id="act-content" style="display:none">
+      <div class="card">
+        <div class="card-title">Calendrier</div>
+        <div class="cal-grid" id="act-calendar"></div>
+      </div>
+      <div class="chart-wrap"><canvas id="act-chart" height="200"></canvas></div>
+      <div id="act-stats"></div>
+      <hr>
+      <details class="collapsible">
+        <summary>🗑 Supprimer une entrée</summary>
+        <ul class="hist-list" id="act-hist"></ul>
+      </details>
+    </div>
+    <div id="act-empty" class="card" style="color:var(--sub);text-align:center;font-size:.88rem">
+      Aucune activité enregistrée pour le moment.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       ONGLET 5 — SOCIAL
+  ════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="panel4">
+    <div class="sec-title" style="color:var(--accent)">Contacts du jour</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <!-- Colonne gauche -->
+      <div>
+        <div class="card">
+          <div class="card-title">J'ai parlé à…</div>
+          <div class="contact-list" id="contact-list"></div>
+          <div style="display:flex;gap:6px;margin-top:10px">
+            <input type="text" id="new-contact" placeholder="Prénom…"
+              style="flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--border);
+                     border-radius:8px;padding:7px 10px;font-size:.88rem;outline:none"
+              onkeydown="if(event.key==='Enter')ajouterContact()">
+            <button class="btn btn-ghost btn-sm" onclick="ajouterContact()">+</button>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="validerSocial()">✓ Valider</button>
+      </div>
+      <!-- Colonne droite -->
+      <div>
+        <div class="card">
+          <div class="card-title">Groupes d'amis</div>
+          <div class="groupe-list" id="groupe-list"></div>
+          <details class="collapsible">
+            <summary>+ Créer un groupe</summary>
+            <div style="margin-top:8px">
+              <input type="text" id="grp-nom" placeholder="Nom du groupe"
+                style="width:100%;background:var(--surface2);color:var(--text);
+                       border:1px solid var(--border);border-radius:8px;
+                       padding:7px 10px;font-size:.85rem;outline:none;margin-bottom:8px">
+              <div id="grp-membres-checks" style="margin-bottom:8px;display:flex;flex-direction:column;gap:4px"></div>
+              <button class="btn btn-primary btn-sm btn-full" onclick="creerGroupe()">Créer</button>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <div id="social-content" style="display:none;margin-top:14px">
+      <div class="chart-wrap"><canvas id="social-chart" height="220"></canvas></div>
+      <div id="social-stats"></div>
+      <hr>
+      <details class="collapsible">
+        <summary>🗑 Supprimer une entrée</summary>
+        <ul class="hist-list" id="social-hist"></ul>
+      </details>
+    </div>
+    <div id="social-empty" class="card" style="color:var(--sub);text-align:center;font-size:.88rem;margin-top:14px">
+      Aucune entrée sociale pour le moment.
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  STORAGE
+// ══════════════════════════════════════════════════════
+const DB_KEY = "suivi_perso_v1";
+
+function loadDB() {
+  try {
+    return JSON.parse(localStorage.getItem(DB_KEY)) || getDefaultDB();
+  } catch { return getDefaultDB(); }
+}
+
+function getDefaultDB() {
+  return {
+    hist_duree:  [],  // [{date:"YYYY-MM-DD", val:minutes}]
+    hist_poids:  [],  // [{date, val:kg}]
+    hist_avec:   [],  // [{date, val:int}]
+    hist_sans:   [],  // [{date, val:int}]
+    hist_act:    [],  // [{date, vals:{cat:bool}}]
+    hist_social: [],  // [{date, noms:[str]}]
+    contacts:    ["Marie","Paul","Lucas","Sophie"],
+    groupes:     [],  // [{nom,membres:[],couleur}]
+  };
+}
+
+function saveDB() { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+
+let db = loadDB();
+
+// ══════════════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════════════
+function switchTab(i) {
+  document.querySelectorAll(".tab-btn").forEach((b,j) => b.classList.toggle("active", i===j));
+  document.querySelectorAll(".tab-panel").forEach((p,j) => p.classList.toggle("active", i===j));
+  if (i===4) refreshGrpMembresChecks();
+}
+
+// ══════════════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════════════
+let toastTimer;
+function toast(msg, type="ok") {
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.className = "show " + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ""; }, 2600);
+}
+
+// ══════════════════════════════════════════════════════
+//  DATES
+// ══════════════════════════════════════════════════════
+function todayStr() { return new Date().toISOString().slice(0,10); }
+function fmtDate(s) {
+  const [y,m,d] = s.split("-");
+  return `${d}/${m}/${y}`;
+}
+function nextDate(hist) {
+  if (!hist.length) return todayStr();
+  const last = new Date(hist[hist.length-1].date);
+  last.setDate(last.getDate()+1);
+  return last.toISOString().slice(0,10);
+}
+
+// ══════════════════════════════════════════════════════
+//  STATS
+// ══════════════════════════════════════════════════════
+function computeStats(hist) {
+  const vals = hist.map(h => h.val);
+  const n = vals.length;
+  if (!n) return null;
+  const moy = vals.reduce((a,b)=>a+b,0)/n;
+  const maxV = Math.max(...vals), minV = Math.min(...vals);
+  const maxD = hist[vals.indexOf(maxV)].date;
+  const minD = hist[vals.indexOf(minV)].date;
+
+  // Par semaine ISO
+  const semMap = {};
+  hist.forEach(h => {
+    const d = new Date(h.date);
+    const w = isoWeek(d);
+    const k = `S${w.w}/${w.y}`;
+    if (!semMap[k]) semMap[k] = {sum:0,n:0};
+    semMap[k].sum += h.val; semMap[k].n++;
+  });
+  const moyS = Object.fromEntries(Object.entries(semMap).map(([k,v])=>[k, v.sum/v.n]));
+
+  // Par mois
+  const MOIS = ["jan","fév","mar","avr","mai","jun","jul","aoû","sep","oct","nov","déc"];
+  const moisMap = {};
+  hist.forEach(h => {
+    const d = new Date(h.date);
+    const k = `${MOIS[d.getMonth()]} ${d.getFullYear()}`;
+    if (!moisMap[k]) moisMap[k] = {sum:0,n:0};
+    moisMap[k].sum += h.val; moisMap[k].n++;
+  });
+  const moyM = Object.fromEntries(Object.entries(moisMap).map(([k,v])=>[k, v.sum/v.n]));
+
+  return {moy, maxV, maxD, minV, minD, moyS, moyM};
+}
+
+function isoWeek(d) {
+  const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = dt.getUTCDay() || 7;
+  dt.setUTCDate(dt.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(dt.getUTCFullYear(),0,1));
+  return {
+    w: Math.ceil((((dt - yearStart) / 86400000) + 1) / 7),
+    y: dt.getUTCFullYear()
+  };
+}
+
+function renderStatsHTML(stats, fmtVal) {
+  if (!stats) return "";
+  let html = `<div class="metrics">
+    <div class="metric">
+      <div class="m-label">Moyenne totale</div>
+      <div class="m-value">${fmtVal(stats.moy)}</div>
+    </div>
+    <div class="metric">
+      <div class="m-label">Maximum</div>
+      <div class="m-value" style="color:var(--gold)">${fmtVal(stats.maxV)}</div>
+      <div class="m-sub">${fmtDate(stats.maxD)}</div>
+    </div>
+    <div class="metric">
+      <div class="m-label">Minimum</div>
+      <div class="m-value" style="color:var(--red)">${fmtVal(stats.minV)}</div>
+      <div class="m-sub">${fmtDate(stats.minD)}</div>
+    </div>
+  </div>`;
+
+  const semKeys = Object.keys(stats.moyS);
+  if (semKeys.length) {
+    html += `<div class="stats-section"><h3>Moyennes par semaine</h3><div class="metrics-sm">`;
+    semKeys.forEach(k => {
+      html += `<div class="metric"><div class="m-label">${k}</div>
+               <div class="m-value">${fmtVal(stats.moyS[k])}</div></div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  const moisKeys = Object.keys(stats.moyM);
+  if (moisKeys.length) {
+    html += `<div class="stats-section"><h3>Moyennes par mois</h3><div class="metrics-sm">`;
+    moisKeys.forEach(k => {
+      html += `<div class="metric"><div class="m-label">${k}</div>
+               <div class="m-value">${fmtVal(stats.moyM[k])}</div></div>`;
+    });
+    html += `</div></div>`;
+  }
+  return html;
+}
+
+// ══════════════════════════════════════════════════════
+//  CHART HELPERS
+// ══════════════════════════════════════════════════════
+const charts = {};
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function makeLineChart(canvasId, labels, datasets, yFmt) {
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId).getContext("2d");
+  charts[canvasId] = new Chart(ctx, {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true, animation: { duration: 400 },
+      plugins: {
+        legend: { labels: { color: "#8A8DB5", font: { size: 11 } } },
+        tooltip: {
+          backgroundColor: "#1A1D27", borderColor: "#2E3148", borderWidth: 1,
+          titleColor: "#E8E8F0", bodyColor: "#8A8DB5",
+          callbacks: { label: ctx2 => " " + yFmt(ctx2.raw) }
+        }
+      },
+      scales: {
+        x: { ticks: { color: "#8A8DB5", font:{size:10} },
+             grid: { color: "#2E3148" } },
+        y: { ticks: { color: "#8A8DB5", font:{size:10},
+               callback: v => yFmt(v) },
+             grid: { color: "#2E3148" } }
+      }
+    }
+  });
+}
+
+function addAnnotationLine(canvasId, yVal, color, label) {
+  // On utilise un dataset fantôme pour la ligne moyenne
+  if (!charts[canvasId]) return;
+  const c = charts[canvasId];
+  const existing = c.data.datasets.find(d => d._isMean);
+  if (existing) { existing.data = c.data.labels.map(()=>yVal); }
+  else {
+    c.data.datasets.push({
+      _isMean: true,
+      label, data: c.data.labels.map(()=>yVal),
+      borderColor: color, borderWidth: 1.5, borderDash: [5,4],
+      pointRadius: 0, fill: false, tension: 0,
+      backgroundColor: "transparent"
+    });
+  }
+  c.update();
+}
+
+// ══════════════════════════════════════════════════════
+//  ONGLET 1 — DURÉE
+// ══════════════════════════════════════════════════════
+function fmtDur(v) {
+  const h = Math.floor(v/60), m = Math.round(v%60);
+  return `${h}h${String(m).padStart(2,"0")}`;
+}
+
+function updateDurDisplay() {
+  const h = parseInt(document.getElementById("dur-h").value)||0;
+  const m = parseInt(document.getElementById("dur-m").value)||0;
+  document.getElementById("dur-display").textContent = fmtDur(h*60+m);
+}
+
+function validerDuree() {
+  const h = parseInt(document.getElementById("dur-h").value)||0;
+  const m = parseInt(document.getElementById("dur-m").value)||0;
+  const total = h*60+m;
+  if (!total) { toast("Durée nulle !", "warn"); return; }
+  db.hist_duree.push({ date: nextDate(db.hist_duree), val: total });
+  saveDB(); renderDuree();
+  toast(`✓ ${fmtDur(total)} enregistré`);
+}
+
+function renderDuree() {
+  const hist = db.hist_duree;
+  const hasData = hist.length > 0;
+  document.getElementById("dur-content").style.display = hasData ? "" : "none";
+  document.getElementById("dur-empty").style.display   = hasData ? "none" : "";
+  if (!hasData) return;
+
+  // Graphique
+  const labels   = hist.map(h => fmtDate(h.date));
+  const vals     = hist.map(h => h.val);
+  const stats    = computeStats(hist);
+  const color    = "#63B3ED";
+  makeLineChart("dur-chart", labels, [{
+    label: "Durée",
+    data: vals, borderColor: color, backgroundColor: color+"26",
+    borderWidth: 2.5, pointBackgroundColor: "#0F1117",
+    pointBorderColor: color, pointBorderWidth: 2.5,
+    pointRadius: 5, fill: true, tension: .35
+  }], fmtDur);
+  addAnnotationLine("dur-chart", stats.moy, "#E8E8F0", `Moyenne ${fmtDur(stats.moy)}`);
+
+  // Stats textuelles
+  document.getElementById("dur-stats").innerHTML = renderStatsHTML(stats, fmtDur);
+
+  // Historique suppression
+  const ul = document.getElementById("dur-hist");
+  ul.innerHTML = hist.map((h,i) =>
+    `<li class="hist-item">
+      <span>${fmtDate(h.date)} — ${fmtDur(h.val)}</span>
+      <button class="del-btn" onclick="delDuree(${i})">✕</button>
+    </li>`
+  ).join("");
+}
+
+function delDuree(i) {
+  db.hist_duree.splice(i,1); saveDB(); renderDuree();
+  toast("Entrée supprimée", "warn");
+}
+
+// ══════════════════════════════════════════════════════
+//  ONGLET 2 — POIDS
+// ══════════════════════════════════════════════════════
+function fmtKg(v) { return `${Number(v).toFixed(2)} kg`; }
+function fmtKgS(v){ return `${Number(v).toFixed(2)}`; }
+
+function ajusterPoids(delta) {
+  const inp = document.getElementById("poids-val");
+  let val = parseFloat(inp.value)||70;
+  val = Math.round((val+delta)*100)/100;
+  val = Math.max(20, Math.min(300, val));
+  inp.value = val.toFixed(2);
+  updatePoidsDisplay();
+}
+
+function updatePoidsDisplay() {
+  const v = parseFloat(document.getElementById("poids-val").value)||70;
+  document.getElementById("poids-display").textContent = v.toFixed(2)+" kg";
+}
+
+function validerPoids() {
+  const v = parseFloat(document.getElementById("poids-val").value);
+  if (isNaN(v)) { toast("Valeur invalide","err"); return; }
+  db.hist_poids.push({ date: nextDate(db.hist_poids), val: Math.round(v*100)/100 });
+  saveDB(); renderPoids();
+  toast(`✓ ${fmtKg(v)} enregistré`);
+}
+
+function renderPoids() {
+  const hist = db.hist_poids;
+  const hasData = hist.length > 0;
+  document.getElementById("poids-content").style.display = hasData ? "" : "none";
+  document.getElementById("poids-empty").style.display   = hasData ? "none" : "";
+  if (!hasData) return;
+
+  const labels = hist.map(h => fmtDate(h.date));
+  const vals   = hist.map(h => h.val);
+  const stats  = computeStats(hist);
+  const color  = "#4FD1A8";
+  makeLineChart("poids-chart", labels, [{
+    label: "Poids (kg)",
+    data: vals, borderColor: color, backgroundColor: color+"26",
+    borderWidth: 2.5, pointBackgroundColor: "#0F1117",
+    pointBorderColor: color, pointBorderWidth: 2.5,
+    pointRadius: 5, fill: true, tension: .35
+  }], fmtKgS);
+  addAnnotationLine("poids-chart", stats.moy, "#E8E8F0", `Moyenne ${fmtKgS(stats.moy)}`);
+
+  document.getElementById("poids-stats").innerHTML = renderStatsHTML(stats, fmtKg);
+
+  const ul = document.getElementById("poids-hist");
+  ul.innerHTML = hist.map((h,i) =>
+    `<li class="hist-item">
+      <span>${fmtDate(h.date)} — ${fmtKg(h.val)}</span>
+      <button class="del-btn" onclick="delPoids(${i})">✕</button>
+    </li>`
+  ).join("");
+}
+
+function delPoids(i) {
+  db.hist_poids.splice(i,1); saveDB(); renderPoids();
+  toast("Entrée supprimée","warn");
+}
+
+// ══════════════════════════════════════════════════════
+//  ONGLET 3 — AIDE
+// ══════════════════════════════════════════════════════
+function validerAvec() {
+  const v = parseInt(document.getElementById("avec-val").value)||0;
+  db.hist_avec.push({ date: nextDate(db.hist_avec), val: v });
+  saveDB(); renderAide();
+  toast(`✓ ${v} (avec aide) enregistré`);
+}
+
+function validerSans() {
+  const v = parseInt(document.getElementById("sans-val").value)||0;
+  db.hist_sans.push({ date: nextDate(db.hist_sans), val: v });
+  saveDB(); renderAide();
+  toast(`✓ ${v} (sans aide) enregistré`);
+}
+
+function fmtInt(v) { return String(Math.round(v)); }
+
+function renderAide() {
+  const hasA = db.hist_avec.length > 0, hasS = db.hist_sans.length > 0;
+  const hasAny = hasA || hasS;
+  document.getElementById("aide-content").style.display = hasAny ? "" : "none";
+  document.getElementById("aide-empty").style.display   = hasAny ? "none" : "";
+  if (!hasAny) return;
+
+  const datasets = [];
+  if (hasA) {
+    datasets.push({
+      label:"Avec aide", data: db.hist_avec.map(h=>h.val),
+      borderColor:"#FF6584", backgroundColor:"#FF658426",
+      borderWidth:2.5, pointBackgroundColor:"#0F1117",
+      pointBorderColor:"#FF6584", pointBorderWidth:2.5,
+      pointRadius:5, fill:true, tension:.35
+    });
+  }
+  if (hasS) {
+    datasets.push({
+      label:"Sans aide", data: db.hist_sans.map(h=>h.val),
+      borderColor:"#4FD1A8", backgroundColor:"#4FD1A826",
+      borderWidth:2.5, pointBackgroundColor:"#0F1117",
+      pointBorderColor:"#4FD1A8", pointBorderWidth:2.5,
+      pointRadius:5, fill:true, tension:.35
+    });
+  }
+  // Labels : union des dates triées
+  const allDates = [...new Set([
+    ...db.hist_avec.map(h=>h.date),
+    ...db.hist_sans.map(h=>h.date)
+  ])].sort().map(fmtDate);
+
+  makeLineChart("aide-chart", allDates, datasets, fmtInt);
+
+  // Stats
+  let statsHtml = "";
+  if (hasA) {
+    const s = computeStats(db.hist_avec);
+    statsHtml += `<p style="font-size:.8rem;font-weight:700;color:var(--red);margin:12px 0 4px">Avec aide</p>`;
+    statsHtml += renderStatsHTML(s, fmtInt);
+    addAnnotationLine("aide-chart", s.moy, "#FF6584", `Moy. avec ${fmtInt(s.moy)}`);
+  }
+  if (hasS) {
+    const s = computeStats(db.hist_sans);
+    statsHtml += `<p style="font-size:.8rem;font-weight:700;color:var(--green);margin:12px 0 4px">Sans aide</p>`;
+    statsHtml += renderStatsHTML(s, fmtInt);
+    addAnnotationLine("aide-chart", s.moy, "#4FD1A8", `Moy. sans ${fmtInt(s.moy)}`);
+  }
+  document.getElementById("aide-stats").innerHTML = statsHtml;
+
+  // Listes suppression
+  document.getElementById("avec-hist").innerHTML = db.hist_avec.map((h,i) =>
+    `<li class="hist-item"><span>${fmtDate(h.date)} — ${h.val}</span>
+     <button class="del-btn" onclick="delAvec(${i})">✕</button></li>`).join("");
+  document.getElementById("sans-hist").innerHTML = db.hist_sans.map((h,i) =>
+    `<li class="hist-item"><span>${fmtDate(h.date)} — ${h.val}</span>
+     <button class="del-btn" onclick="delSans(${i})">✕</button></li>`).join("");
+}
+
+function delAvec(i){ db.hist_avec.splice(i,1); saveDB(); renderAide(); toast("Supprimé","warn"); }
+function delSans(i){ db.hist_sans.splice(i,1); saveDB(); renderAide(); toast("Supprimé","warn"); }
+
+// ══════════════════════════════════════════════════════
+//  ONGLET 4 — ACTIVITÉS
+// ══════════════════════════════════════════════════════
+const CATS = [
+  { label:"🎵 Musique", color:"#A78BFA" },
+  { label:"🎭 Culture", color:"#FFB74D" },
+  { label:"⚽ Sport",   color:"#4FD1A8" },
+];
+
+function initActChecks() {
+  const wrap = document.getElementById("act-checks");
+  wrap.innerHTML = CATS.map((c,i) => `
+    <div class="check-card" id="cc-${i}" onclick="toggleCat(${i})"
+         style="border-color:${c.color}33">
+      <div class="cc-bar" style="background:${c.color}"></div>
+      <div class="cc-name">${c.label}</div>
+      <div class="cc-tick" style="color:${c.color}">✓</div>
+    </div>`
+  ).join("");
+}
+
+function toggleCat(i) {
+  const el = document.getElementById(`cc-${i}`);
+  el.classList.toggle("checked");
+}
+
+function validerAct() {
+  const vals = {};
+  CATS.forEach((c,i) => { vals[c.label] = document.getElementById(`cc-${i}`).classList.contains("checked"); });
+  db.hist_act.push({ date: nextDate(db.hist_act), vals });
+  saveDB(); renderAct();
+  // reset
+  CATS.forEach((_,i) => document.getElementById(`cc-${i}`).classList.remove("checked"));
+  const faits = CATS.filter((_,i) => vals[CATS[i].label]).map(c=>c.label);
+  toast(`✓ ${faits.length ? faits.join(", ") : "rien"}`);
+}
+
+function renderAct() {
+  const hist = db.hist_act;
+  const hasData = hist.length > 0;
+  document.getElementById("act-content").style.display = hasData ? "" : "none";
+  document.getElementById("act-empty").style.display   = hasData ? "none" : "";
+  if (!hasData) return;
+
+  // Calendrier
+  const moisSet = [...new Set(hist.map(h => h.date.slice(0,7)))].sort();
+  const calEl = document.getElementById("act-calendar");
+  calEl.innerHTML = moisSet.map(ym => {
+    const [y,m] = ym.split("-").map(Number);
+    const daysInMonth = new Date(y,m,0).getDate();
+    const firstDay = (new Date(y,m-1,1).getDay()+6)%7; // lundi=0
+    const JOURS = ["L","M","M","J","V","S","D"];
+    const MOIS_NOM = ["jan","fév","mar","avr","mai","jun","jul","aoû","sep","oct","nov","déc"];
+
+    let cells = Array(firstDay).fill(null);
+    for (let d=1; d<=daysInMonth; d++) cells.push(d);
+
+    const rows = [];
+    for (let i=0; i<cells.length; i+=7) rows.push(cells.slice(i,i+7));
+
+    return `<div class="cal-month">
+      <h3>${MOIS_NOM[m-1]} ${y}</h3>
+      <table class="cal-table">
+        <thead><tr>${JOURS.map(j=>`<th>${j}</th>`).join("")}</tr></thead>
+        <tbody>${rows.map(row => `<tr>${row.map(d => {
+          if (!d) return `<td></td>`;
+          const dateStr = `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+          const entry   = hist.find(h => h.date === dateStr);
+          const dots    = entry
+            ? CATS.filter(c => entry.vals[c.label]).map(c =>
+                `<div class="cal-dot" style="background:${c.color}"></div>`).join("")
+            : `<div class="cal-dot" style="background:var(--border)"></div>`;
+          return `<td><div class="cal-day"><span class="cal-num">${d}</span>
+                  <div class="cal-dots">${dots}</div></div></td>`;
+        }).join("")}</tr>`).join("")}</tbody>
+      </table>
+    </div>`;
+  }).join("");
+
+  // Graphique en barres (taux de pratique)
+  const total = hist.length;
+  const counts = CATS.map(c => hist.filter(h => h.vals[c.label]).length);
+  const pcts   = counts.map(c => Math.round(c/total*100));
+
+  destroyChart("act-chart");
+  const ctx = document.getElementById("act-chart").getContext("2d");
+  charts["act-chart"] = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: CATS.map(c => c.label.split(" ").slice(1).join(" ")),
+      datasets: [{
+        label: "% des jours pratiqués",
+        data: pcts,
+        backgroundColor: CATS.map(c => c.color+"CC"),
+        borderColor: CATS.map(c => c.color),
+        borderWidth: 2, borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true, animation: { duration: 400 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor:"#1A1D27", borderColor:"#2E3148", borderWidth:1,
+          callbacks: { label: c2 => ` ${c2.raw}% (${counts[c2.dataIndex]}/${total} j)` }
+        }
+      },
+      scales: {
+        x: { ticks:{color:"#8A8DB5"}, grid:{color:"#2E3148"} },
+        y: { ticks:{color:"#8A8DB5", callback:v=>v+"%"}, grid:{color:"#2E3148"},
+             min:0, max:100 }
+      }
+    }
+  });
+
+  // Stats textuelles
+  const moyG = pcts.reduce((a,b)=>a+b,0)/pcts.length;
+  let html = `<div class="metrics" style="margin-top:14px">`;
+  CATS.forEach((c,i) => {
+    html += `<div class="metric">
+      <div class="m-label" style="color:${c.color}">${c.label.split(" ").slice(1).join(" ")}</div>
+      <div class="m-value">${pcts[i]}%</div>
+      <div class="m-sub">${counts[i]}/${total} jours</div>
+    </div>`;
+  });
+  html += `</div>
+  <div class="metric" style="margin-top:8px">
+    <div class="m-label">Moyenne globale</div>
+    <div class="m-value">${moyG.toFixed(1)}%</div>
+  </div>`;
+  document.getElementById("act-stats").innerHTML = html;
+
+  // Hist suppression
+  document.getElementById("act-hist").innerHTML = hist.map((h,i) => {
+    const faits = CATS.filter(c => h.vals[c.label]).map(c=>c.label);
+    return `<li class="hist-item">
+      <span>${fmtDate(h.date)} — ${faits.length ? faits.join(", ") : "rien"}</span>
+      <button class="del-btn" onclick="delAct(${i})">✕</button>
+    </li>`;
+  }).join("");
+}
+
+function delAct(i){ db.hist_act.splice(i,1); saveDB(); renderAct(); toast("Supprimé","warn"); }
+
+// ══════════════════════════════════════════════════════
+//  ONGLET 5 — SOCIAL
+// ══════════════════════════════════════════════════════
+const GROUPE_COLORS = ["#6C63FF","#FF6584","#4FD1A8","#FFB74D","#F472B6","#63B3ED"];
+
+function renderContactList() {
+  document.getElementById("contact-list").innerHTML = db.contacts.map(n =>
+    `<label class="contact-item">
+      <input type="checkbox" id="chk-${n}" value="${n}">
+      <span>${n}</span>
+    </label>`
+  ).join("");
+}
+
+function ajouterContact() {
+  const inp = document.getElementById("new-contact");
+  const n = inp.value.trim();
+  if (n && !db.contacts.includes(n)) {
+    db.contacts.push(n); saveDB();
+    renderContactList(); refreshGrpMembresChecks();
+    inp.value="";
+    toast(`✓ ${n} ajouté`);
+  }
+}
+
+function refreshGrpMembresChecks() {
+  document.getElementById("grp-membres-checks").innerHTML = db.contacts.map(n =>
+    `<label style="display:flex;align-items:center;gap:6px;font-size:.85rem;color:var(--text)">
+      <input type="checkbox" value="${n}" style="accent-color:var(--accent)"> ${n}
+    </label>`
+  ).join("");
+}
+
+function creerGroupe() {
+  const nom = document.getElementById("grp-nom").value.trim();
+  const membres = [...document.querySelectorAll("#grp-membres-checks input:checked")].map(i=>i.value);
+  if (!nom || !membres.length) { toast("Nom et membres requis","warn"); return; }
+  const couleur = GROUPE_COLORS[db.groupes.length % GROUPE_COLORS.length];
+  db.groupes.push({ nom, membres, couleur });
+  saveDB(); renderGroupes();
+  document.getElementById("grp-nom").value="";
+  document.querySelectorAll("#grp-membres-checks input").forEach(i=>i.checked=false);
+  toast(`✓ Groupe "${nom}" créé`);
+}
+
+function renderGroupes() {
+  document.getElementById("groupe-list").innerHTML = db.groupes.map((g,i) =>
+    `<div class="groupe-pill">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="groupe-dot" style="background:${g.couleur}"></div>
+        <div>
+          <div style="font-weight:700;font-size:.85rem">${g.nom}</div>
+          <div style="font-size:.75rem;color:var(--sub)">${g.membres.join(", ")}</div>
+        </div>
+      </div>
+      <button class="del-btn" onclick="delGroupe(${i})">✕</button>
+    </div>`
+  ).join("");
+}
+
+function delGroupe(i){ db.groupes.splice(i,1); saveDB(); renderGroupes(); toast("Groupe supprimé","warn"); }
+
+function validerSocial() {
+  const sel = [...document.querySelectorAll("#contact-list input:checked")].map(i=>i.value);
+  db.hist_social.push({ date: nextDate(db.hist_social), noms: sel });
+  saveDB(); renderSocial();
+  document.querySelectorAll("#contact-list input").forEach(i=>i.checked=false);
+  toast(`✓ ${sel.length ? sel.join(", ") : "personne"}`);
+}
+
+function renderSocial() {
+  const hist = db.hist_social;
+  const hasData = hist.length > 0;
+  document.getElementById("social-content").style.display = hasData ? "" : "none";
+  document.getElementById("social-empty").style.display   = hasData ? "none" : "";
+  if (!hasData) return;
+
+  const labels = hist.map(h => fmtDate(h.date));
+  const vals   = hist.map(h => h.noms.length);
+  const color  = "#6C63FF";
+  const stats  = computeStats(hist.map((h,i) => ({date:h.date, val:vals[i]})));
+  makeLineChart("social-chart", labels, [{
+    label:"Personnes contactées",
+    data:vals, borderColor:color, backgroundColor:color+"26",
+    borderWidth:2.5, pointBackgroundColor:"#0F1117",
+    pointBorderColor:color, pointBorderWidth:2.5,
+    pointRadius:5, fill:true, tension:.35
+  }], v => Math.round(v)+" pers.");
+  addAnnotationLine("social-chart", stats.moy, "#E8E8F0", `Moyenne ${stats.moy.toFixed(1)} pers.`);
+
+  document.getElementById("social-stats").innerHTML =
+    renderStatsHTML(stats, v => `${Math.round(v)} pers.`);
+
+  document.getElementById("social-hist").innerHTML = hist.map((h,i) =>
+    `<li class="hist-item">
+      <span>${fmtDate(h.date)} — ${h.noms.length ? h.noms.join(", ") : "personne"}</span>
+      <button class="del-btn" onclick="delSocial(${i})">✕</button>
+    </li>`
+  ).join("");
+}
+
+function delSocial(i){ db.hist_social.splice(i,1); saveDB(); renderSocial(); toast("Supprimé","warn"); }
+
+// ══════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════
+(function init() {
+  updateDurDisplay();
+  updatePoidsDisplay();
+  initActChecks();
+  renderContactList();
+  refreshGrpMembresChecks();
+  renderGroupes();
+  renderDuree();
+  renderPoids();
+  renderAide();
+  renderAct();
+  renderSocial();
+})();
+</script>
+</body>
+</html>
